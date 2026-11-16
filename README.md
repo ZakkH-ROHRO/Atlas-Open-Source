@@ -1,2 +1,22 @@
 # Atlas-Open-Source
-ROHRO Atlas is an AI educational assistant built to help RV owners learn, troubleshoot and make informed decisions. Its built-in learning system evaluates performance and identifies improvements. Now open-source, Atlas's core gives everyone the opportunity to configure their own AI assistant. Designed to show what's possible. Shared for everyone.
+AI should give people more opportunities, not take them away.
+
+I built Atlas because I believe useful technology should be available to everyone, not just those who can afford it.
+
+It started as a free tool to help RV owners. Now, I'm opening its source code to the world.
+
+**Technology should empower people, not leave them behind.**
+
+**What is ROHRO Atlas?**
+
+Atlas is an AI-powered educational assistant originally built to help RV owners understand, troubleshoot, and learn about their RVs.
+
+It can search relevant educational resources, guide people through problems one step at a time, explain complicated topics in plain language, and help people make more informed decisions.
+
+But Atlas is more than a question-and-answer chatbot. It has a learning and improvement system designed to evaluate its own performance, identify weaknesses, and propose ways to improve.
+
+It was built independently, with a focus on practical knowledge, accessibility, and keeping technology affordable.
+
+Now, its source code is being opened to the world so others can learn from it, build on it, and adapt the technology for their own communities.
+
+**Built for RV owners. Designed to show what's possible. Shared for everyone.**
