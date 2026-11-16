@@ -13,7 +13,7 @@ Atlas is an AI-powered educational assistant originally built to help RV owners 
 
 It can search relevant educational resources, guide people through problems one step at a time, explain complicated topics in plain language, and help people make more informed decisions.
 
-But Atlas is more than a question-and-answer chatbot. It has a learning and improvement system designed to evaluate its own performance, identify weaknesses, and propose ways to improve.
+But Atlas is more than a question-and-answer chatbot. It has a learning and improvement system designed to evaluate its own performance, identify weaknesses, and propose ways to improve regardless of the AI model used.
 
 It was built independently, with a focus on practical knowledge, accessibility, and keeping technology affordable.
 
