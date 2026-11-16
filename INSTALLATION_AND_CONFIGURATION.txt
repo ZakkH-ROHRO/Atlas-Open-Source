@@ -1,0 +1,282 @@
+ATLAS — OPEN-SOURCE CLOUDFLARE EDITION
+=====================================
+
+WHAT THIS PACKAGE CONTAINS
+--------------------------
+1. Atlas.js
+   The assistant Worker: request handling, retrieval, optional image analysis,
+   message tracking, RSI evaluation, knowledge extraction, and behavioural
+   evolution.
+
+2. Database_Schema.sql
+   The D1 (SQLite) tables and indexes used by this Worker.
+
+3. INSTALLATION_AND_CONFIGURATION.txt
+   This guide.
+
+PLATFORM STATUS
+---------------
+PLATFORM: CLOUDFLARE
+DATABASE_PROVIDER: D1
+AI_PROVIDER: CLOUDFLARE_WORKERS_AI
+
+This is the first supported platform version. It is designed for Cloudflare
+Workers, Cloudflare D1, and Workers AI. Other hosting platforms, databases, and
+AI providers are not implemented in this release. Provider-specific calls are
+kept in a clearly marked section of Atlas.js to make a future port easier.
+
+This package is separate from the ROHRO production Atlas Worker. It does not
+contain ROHRO's private credentials, production configuration, or live guide
+catalogue. Do not paste it over an existing production Worker.
+
+The SQL file creates the tables this Worker actually uses. It deliberately does
+not create the extra code-change, code-test, or deployment tables found in a
+broader historical schema export, because this release has no code-editing or
+deployment engine.
+
+IMPORTANT ABOUT RSI
+-------------------
+The scheduled RSI cycle can review response-evaluation metadata and autonomously
+update the assistant's behavioural guidance stored in D1, when enabled and when
+its confidence and validation checks pass.
+
+It does NOT rewrite JavaScript source code, generate code changes, run code
+ tests, or deploy Worker updates. The admin proposal-review endpoint records a
+human decision only. It does not activate code or deploy anything.
+
+STEP 1 — CREATE A CLOUDFLARE WORKER
+-----------------------------------
+1. Sign in to the Cloudflare dashboard.
+2. Open Workers & Pages and create a new Worker.
+3. Give it your own Worker name.
+4. Open the Worker editor and replace the starter code with the complete
+   contents of Atlas.js.
+5. Save, but do not expose the Worker publicly until you have completed the
+   configuration and tested it.
+
+STEP 2 — CREATE THE D1 DATABASE
+-------------------------------
+1. In Cloudflare, open Workers & Pages > D1 SQL Database (the menu wording may
+   vary).
+2. Create a new D1 database.
+3. Open its SQL console.
+4. Paste the complete contents of Database_Schema.sql and execute it once.
+5. Confirm that the tables were created successfully.
+
+STEP 3 — ADD THE WORKER BINDINGS
+--------------------------------
+In the Worker settings, add these bindings:
+
+Binding name: AI
+Type: Workers AI
+Purpose: text generation; optional vision model if you enable image input.
+
+Binding name: DB
+Type: D1 database
+Value: select the D1 database created in Step 2.
+
+The names AI and DB must match exactly because Atlas.js reads env.AI and env.DB.
+
+STEP 4 — ADD SECRETS
+--------------------
+In Worker Settings > Variables and Secrets, add:
+
+ATLAS_ADMIN_SECRET
+  A long, random secret used to protect the RSI admin endpoints. Store it as a
+  secret, not a plain-text variable. Do not put it in Atlas.js or publish it.
+
+Do not add Cloudflare API tokens or account IDs. This public version does not
+need them and intentionally has no endpoint that reads Worker source code or
+manages deployments.
+
+Optional ordinary variables:
+
+TEXT_MODEL
+  Overrides CONFIG.ai.textModel. Leave unset to use the configured default.
+
+VISION_MODEL
+  Overrides CONFIG.ai.visionModel when image input is enabled.
+
+RSI_SAMPLE_RATE
+  Optional number from 0 to 1. Example: 1 evaluates every response; 0.25
+  evaluates roughly one quarter of responses. Leave unset to use CONFIG.rsi.
+
+STEP 5 — EDIT THE CONFIGURATION IN Atlas.js
+--------------------------------------------
+At the top of Atlas.js, edit the CONFIG object.
+
+A. Assistant identity
+   assistant.name          Your assistant's public name.
+   assistant.organization  Your organization or project.
+   assistant.purpose      What the assistant helps people do.
+   assistant.tone         Desired writing style.
+   assistant.systemInstructions
+                           Your domain-specific instructions and expertise.
+   assistant.behaviorGuidance
+                           Baseline behavioural guidance used by the assistant.
+
+B. AI model
+   ai.textModel            Cloudflare Workers AI text model identifier.
+   ai.maxTokens            Maximum generated answer length.
+   ai.temperature          Response variability (lower is more consistent).
+
+C. Website and CORS
+   http.allowedOrigins     Exact website origins allowed to call the Worker.
+                           Include scheme, such as https://example.com.
+                           Do not use a wildcard for a public assistant.
+
+D. Knowledge retrieval
+   knowledge.allowedDomains
+                           Hostnames Atlas is permitted to fetch. Use hostnames
+                           only, without https:// or URL paths.
+   knowledge.indexes       Add your public index/category pages as objects:
+                           { name: "Help centre", url: "https://example.com/help" }
+   knowledge.collections   Optional curated content groups. Each item can have
+                           name, url, purpose, and keywords.
+   knowledge.pathways      Optional learning sequences. Each item can have name,
+                           description, url, and keywords.
+   knowledge.aliases       Optional vocabulary mapping for alternate terms.
+
+   The retrieval layer fetches configured HTTPS sources only. It checks the
+   allowed-domain list and validates redirects. Do not add private, internal,
+   or credential-protected URLs. The generic index reader discovers article
+   links from ordinary HTML anchor tags. If your site uses unusual JavaScript
+   navigation or a non-HTML API, its index format will need a custom adapter.
+
+E. Features
+   Set each CONFIG.features switch to true or false:
+   knowledgeRetrieval, persistentKnowledge, knowledgeExtraction,
+   responseEvaluation, autonomousBehaviorEvolution, adminApi,
+   messageTracking, imageInput.
+
+   Image input is OFF by default. To enable it, set both
+   CONFIG.features.imageInput = true and CONFIG.ai.visionEnabled = true, confirm
+   the configured vision model is available to your Cloudflare account, and
+   keep the request-size limit appropriate for your use case. Image requests
+   send a base64 image in the JSON field named "image".
+
+F. RSI thresholds
+   CONFIG.rsi controls sampling, evaluation windows, recurring-issue thresholds,
+   minimum confidence, daily knowledge-extraction limits, issue tags, and the
+   validation rules for autonomous behavioural changes. Keep the validation
+   safeguards enabled. Do not add instructions that allow the model to bypass
+   safety, privacy, or system-level rules.
+
+STEP 6 — DEPLOY AND TEST
+------------------------
+1. Save and deploy the Worker.
+2. Open https://YOUR-WORKER.workers.dev/health in a browser. A healthy response
+   reports the assistant name and Cloudflare provider labels.
+3. Test the chat endpoint with a POST request to /chat using JSON:
+
+   {
+     "message": "What can you help me with?"
+   }
+
+   The Worker responds as Server-Sent Events (SSE), matching the original
+   Atlas-style progress flow. Events include tracking, activity, result, and
+   error. The final result event contains the answer, messageId/conversationId
+   tracking event, and retrieval metadata. Your website client must read the
+   SSE stream and display the result event.
+
+4. Confirm that an origin not listed in CONFIG.http.allowedOrigins is rejected.
+5. Confirm that requests without a message are rejected and rate limiting works.
+6. If RSI is enabled, send several test questions and inspect the D1 tables.
+   Evaluations are asynchronous and may take a short time to appear.
+
+STEP 7 — ENABLE THE SCHEDULED RSI CYCLE
+--------------------------------------
+In the Worker settings, add a Cron Trigger. For example:
+
+0 4 * * *
+
+This runs once daily at 04:00 UTC. The scheduled handler starts the RSI
+behavioural evolution cycle. It needs the AI and DB bindings and at least the
+configured minimum number of response evaluations. If no recurring issue is
+found, or the proposed change fails validation/confidence checks, no change is
+made.
+
+STEP 8 — USE THE ADMIN ENDPOINTS
+--------------------------------
+Send the header:
+
+Authorization: Bearer YOUR_ATLAS_ADMIN_SECRET
+
+Available endpoints:
+
+GET  /admin/rsi/summary
+     Returns evaluation totals, recurring issue patterns, pending proposals,
+     and whether behavioural guidance has been activated.
+
+POST /admin/rsi/proposals/PROPOSAL_ID/review
+     JSON body: { "decision": "approved" } or { "decision": "rejected" }
+     This records the human review decision only. It does not change code or
+     deploy anything.
+
+If CONFIG.features.adminApi is false, these endpoints are disabled.
+
+KNOWLEDGE REVIEW
+----------------
+New facts extracted from sources are initially stored as "unverified". Atlas
+only retrieves persistent facts classified as "verified" or "supported".
+Review extracted facts before changing their classification. For example, to
+mark one reviewed fact as supported, use a parameterized SQL statement in your
+D1 console or database tool, after checking its evidence and source:
+
+UPDATE rsi_knowledge
+SET classification = 'supported', reviewed_at = datetime('now'),
+    updated_at = datetime('now')
+WHERE id = 'THE_ID_YOU_REVIEWED';
+
+Do not approve facts merely because an AI extracted them. Confirm that the
+supporting excerpt genuinely supports the statement.
+
+PRIVACY AND SECURITY NOTES
+--------------------------
+- Do not put secrets, API tokens, passwords, or private keys in Atlas.js.
+- Use Cloudflare Worker secrets for admin authentication.
+- Configure exact allowed website origins.
+- Only add knowledge domains you trust and control or have permission to use.
+- The Worker stores message IDs, opaque conversation IDs, image flags, intent,
+  and status for basic tracking. It does not store raw questions or answers in
+  the RSI evaluation tables. Rate limiting stores a SHA-256 hash of the client
+  IP rather than the raw IP address.
+- Evaluation models temporarily receive the question and answer to score them;
+  the raw text is not inserted into RSI records. Tell users about processing in
+  your own privacy notice and review your applicable privacy obligations.
+- Keep the admin secret private and rotate it if it is exposed.
+- Use HTTPS for your public website and knowledge sources.
+- Review your domain-specific safety rules before public release.
+- Do not rely on an AI answer as a substitute for qualified professional advice
+  in safety-critical, legal, medical, financial, or other regulated matters.
+
+LIMITATIONS OF THIS STARTER VERSION
+----------------------------------
+- Cloudflare Workers, D1, and Workers AI are the only implemented providers.
+- Knowledge retrieval is a lightweight HTML index/article reader, not a full
+  crawler or general web search engine.
+- Index pagination supports common same-path links using a numeric page query
+  parameter. Sites with custom pagination or JavaScript-only navigation may
+  need a custom index adapter.
+- There is no built-in web dashboard for reviewing knowledge or RSI proposals.
+- There is no autonomous source-code editing, testing, rollback, or deployment.
+- The example configuration contains placeholders. Replace them before use.
+- No particular open-source license is assigned by this package. Choose and add
+  a license before publishing if you want others to reuse, modify, and share it.
+
+QUICK CONFIGURATION CHECKLIST
+-----------------------------
+[ ] Replace assistant identity and domain instructions.
+[ ] Set your website's exact allowed origin(s).
+[ ] Add your trusted knowledge domains and index URLs.
+[ ] Configure collections, pathways, and vocabulary aliases if required.
+[ ] Create D1 and execute Database_Schema.sql.
+[ ] Add Workers AI binding named AI.
+[ ] Add D1 binding named DB.
+[ ] Set ATLAS_ADMIN_SECRET as a Worker secret.
+[ ] Confirm image input is off unless deliberately configured.
+[ ] Deploy and test /health and /chat.
+[ ] Add a Cron Trigger if scheduled RSI evolution is wanted.
+[ ] Publish a privacy notice and choose an open-source license.
+
+END OF GUIDE
